@@ -227,7 +227,8 @@ export default function TimelineChart({ series, average }: TimelineChartProps) {
                   strokeDasharray="3 3"
                   opacity={0.6}
                 />
-                <circle cx={hovered.x} cy={hovered.y} r={4.5} fill="#0b0f17" stroke="#5b8def" strokeWidth={2} />
+                <circle cx={hovered.x} cy={hovered.y} r={11} fill="#5b8def" opacity={0.18} />
+                <circle cx={hovered.x} cy={hovered.y} r={6} fill="#0b0f17" stroke="#5b8def" strokeWidth={3} />
               </g>
             )}
 

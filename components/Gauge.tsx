@@ -17,6 +17,12 @@ const CENTER_X = SIZE / 2;
 const CENTER_Y = SIZE / 2 + 10;
 const RADIUS = 95;
 
+// Every fraction gets a tick mark; only the inner ones get a number (the +-2% ends are
+// already labeled by the BELOW AVG / ABOVE AVG captions, and a number there would clip
+// against the SVG edge).
+const TICK_FRACTIONS = [-1, -0.5, 0, 0.5, 1];
+const SCALE_LABELS: Record<number, string> = { "-0.5": "-1%", "0": "0%", "0.5": "+1%" };
+
 function pointOnArc(angleDeg: number, radius: number) {
   const rad = (angleDeg * Math.PI) / 180;
   return {
@@ -76,22 +82,61 @@ export default function Gauge({ deviationPct, deviationAbs, average }: GaugeProp
           opacity={0.9}
         />
 
-        {[-1, -0.5, 0, 0.5, 1].map((f) => {
-          const angle = 90 - f * 90;
+        {TICK_FRACTIONS.map((fraction) => {
+          const angle = 90 - fraction * 90;
           const outer = pointOnArc(angle, RADIUS + 9);
           const inner = pointOnArc(angle, RADIUS - 9);
+          const textPos = pointOnArc(angle, RADIUS + 25);
+          const label = SCALE_LABELS[fraction];
           return (
-            <line
-              key={f}
-              x1={inner.x}
-              y1={inner.y}
-              x2={outer.x}
-              y2={outer.y}
-              stroke="#3a4358"
-              strokeWidth={f === 0 ? 2 : 1}
-            />
+            <g key={fraction}>
+              <line
+                x1={inner.x}
+                y1={inner.y}
+                x2={outer.x}
+                y2={outer.y}
+                stroke="#3a4358"
+                strokeWidth={fraction === 0 ? 2 : 1}
+              />
+              {label && (
+                <text
+                  x={textPos.x}
+                  y={textPos.y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={11}
+                  fontWeight={fraction === 0 ? 600 : 400}
+                  fill={fraction === 0 ? "#9aa4b8" : "#6b7690"}
+                >
+                  {label}
+                </text>
+              )}
+            </g>
           );
         })}
+
+        <text
+          x={CENTER_X - RADIUS - 6}
+          y={CENTER_Y + 22}
+          textAnchor="start"
+          fontSize={10}
+          fontWeight={600}
+          letterSpacing={0.5}
+          fill="#5b8def"
+        >
+          BELOW AVG
+        </text>
+        <text
+          x={CENTER_X + RADIUS + 6}
+          y={CENTER_Y + 22}
+          textAnchor="end"
+          fontSize={10}
+          fontWeight={600}
+          letterSpacing={0.5}
+          fill="#d6a84e"
+        >
+          ABOVE AVG
+        </text>
 
         <line
           x1={needleBase1.x}
@@ -119,9 +164,12 @@ export default function Gauge({ deviationPct, deviationAbs, average }: GaugeProp
       <div className="text-center -mt-2">
         <div className={`flex items-center justify-center gap-1.5 text-sm font-medium ${isAbove ? "text-gold" : "text-accent"}`}>
           <span>{isAbove ? "Above" : "Below"} 30-day average</span>
-          <InfoTip text="The needle compares today's rate to its own trailing 30-day average. Straight up means the rate equals that average; a +-2% deviation swings the needle fully to either side." />
+          <InfoTip text={`The needle shows how far today's rate is from its own trailing 30-day average, on a scale from -2% to +2%. Example: if the 30-day average is ${formatRate(average)} and today's rate is ${formatSigned(deviationAbs)} away from it, that is a ${formatPercent(deviationPct)} deviation - so the needle sits ${isAbove ? "right" : "left"} of center, toward "${isAbove ? "ABOVE AVG" : "BELOW AVG"}".`} />
         </div>
-        <div className="mt-1 text-xs text-slate-400">
+        <p className="mx-auto mt-1 max-w-[220px] text-[11px] leading-snug text-slate-500">
+          Compares today&apos;s rate to its own 30-day average. Centered needle = at average; full swing = &plusmn;2% away.
+        </p>
+        <div className="mt-2 text-xs text-slate-400">
           Mean: <span className="tabular-nums">{formatRate(average)}</span>
         </div>
         <div className="mt-1 flex items-center justify-center gap-4 text-sm">
