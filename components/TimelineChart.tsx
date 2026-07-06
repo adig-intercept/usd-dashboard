@@ -244,7 +244,11 @@ export default function TimelineChart({ series, average }: TimelineChartProps) {
 
           <div
             className="pointer-events-none absolute whitespace-nowrap text-[11px] font-medium text-gold"
-            style={{ top: `${(avgY / HEIGHT) * 100}%`, right: 4, transform: "translateY(-130%)" }}
+            style={{
+              top: `${(avgY / HEIGHT) * 100}%`,
+              right: 4,
+              transform: `translateY(${avgY / HEIGHT < 0.32 ? "25%" : "-130%"})`,
+            }}
           >
             30-day avg
           </div>
@@ -255,7 +259,11 @@ export default function TimelineChart({ series, average }: TimelineChartProps) {
               style={{
                 left: `${(hovered.x / WIDTH) * 100}%`,
                 top: `${(hovered.y / HEIGHT) * 100}%`,
-                transform: "translate(-50%, -130%)",
+                // Anchor away from whichever edge the point is closest to, so the box never
+                // extends past the chart area and gets clipped by the panel's overflow.
+                transform: `translate(${
+                  hovered.x / WIDTH > 0.82 ? "-100%" : hovered.x / WIDTH < 0.18 ? "0%" : "-50%"
+                }, ${hovered.y / HEIGHT < 0.32 ? "25%" : "-130%"})`,
               }}
             >
               <div className="font-semibold tabular-nums text-slate-100">{formatRate(hovered.raw.value)}</div>
