@@ -21,6 +21,11 @@ const PAD_BOTTOM = 10;
 // Axis labels render as fixed-size HTML text in this gutter, so they stay legible no matter
 // how narrow the panel is resized - SVG <text> would otherwise shrink with the viewBox scale.
 const LABEL_COLUMN_WIDTH = 52;
+const X_AXIS_HEIGHT = 16;
+// Minimum horizontal space (px) a "DD-MM-YYYY" tick needs so neighboring ticks don't overlap
+// when the panel is resized narrow.
+const MIN_TICK_SPACING = 90;
+const MAX_TICKS = 6;
 
 function buildSmoothPath(points: { x: number; y: number }[]): string {
   if (points.length === 0) return "";
@@ -43,11 +48,31 @@ function buildSmoothPath(points: { x: number; y: number }[]): string {
   return d;
 }
 
+// Picks up to `count` point indices spread evenly across the series, always including the first and last.
+function pickTickIndices(pointCount: number, count: number): number[] {
+  if (pointCount <= 1) return [0];
+  const tickCount = Math.min(count, pointCount);
+  const indices = Array.from({ length: tickCount }, (_, i) =>
+    Math.round((i * (pointCount - 1)) / (tickCount - 1))
+  );
+  return Array.from(new Set(indices));
+}
+
 export default function TimelineChart({ series, average }: TimelineChartProps) {
   const pathRef = useRef<SVGPathElement>(null);
+  const axisRef = useRef<HTMLDivElement>(null);
   const [pathLength, setPathLength] = useState(0);
   const [drawn, setDrawn] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [axisWidth, setAxisWidth] = useState(0);
+
+  useEffect(() => {
+    const el = axisRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => setAxisWidth(entries[0].contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const { points, yScale, minY, maxY } = useMemo(() => {
     if (series.length === 0) {
@@ -120,120 +145,148 @@ export default function TimelineChart({ series, average }: TimelineChartProps) {
 
   const hovered = hoverIndex !== null ? points[hoverIndex] : null;
   const gridSteps = [0, 0.25, 0.5, 0.75, 1];
+  const maxTicksByWidth = axisWidth > 0 ? Math.max(2, Math.floor(axisWidth / MIN_TICK_SPACING)) : 4;
+  const xTickIndices = pickTickIndices(points.length, Math.min(MAX_TICKS, maxTicksByWidth));
 
   return (
-    <div className="flex w-full" style={{ height: HEIGHT }}>
-      <div className="relative shrink-0 text-right" style={{ width: LABEL_COLUMN_WIDTH }}>
-        {gridSteps.map((t) => {
-          const y = PAD_TOP + (HEIGHT - PAD_TOP - PAD_BOTTOM) * t;
-          const value = maxY - (maxY - minY) * t;
-          return (
-            <div
-              key={t}
-              className="absolute right-1.5 -translate-y-1/2 whitespace-nowrap text-[11px] font-medium tabular-nums text-slate-400"
-              style={{ top: `${(y / HEIGHT) * 100}%` }}
-            >
-              {formatRate(value)}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="relative min-w-0 flex-1">
-        <svg
-          width="100%"
-          height={HEIGHT}
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          preserveAspectRatio="none"
-          className="overflow-visible"
-        >
-          <defs>
-            <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#5b8def" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="#5b8def" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-
+    <div className="flex w-full flex-col">
+      <div className="flex w-full" style={{ height: HEIGHT }}>
+        <div className="relative shrink-0 text-right" style={{ width: LABEL_COLUMN_WIDTH }}>
           {gridSteps.map((t) => {
             const y = PAD_TOP + (HEIGHT - PAD_TOP - PAD_BOTTOM) * t;
-            return <line key={t} x1={0} y1={y} x2={WIDTH} y2={y} stroke="#1c2435" strokeWidth={1} />;
+            const value = maxY - (maxY - minY) * t;
+            return (
+              <div
+                key={t}
+                className="absolute right-1.5 -translate-y-1/2 whitespace-nowrap text-[11px] font-medium tabular-nums text-slate-400"
+                style={{ top: `${(y / HEIGHT) * 100}%` }}
+              >
+                {formatRate(value)}
+              </div>
+            );
           })}
-
-          <path d={areaPath} fill="url(#areaGradient)" />
-
-          <line
-            x1={0}
-            y1={avgY}
-            x2={WIDTH}
-            y2={avgY}
-            stroke="#d6a84e"
-            strokeWidth={1.5}
-            strokeDasharray="6 5"
-            opacity={0.85}
-          />
-
-          <path
-            ref={pathRef}
-            d={linePath}
-            fill="none"
-            stroke="#5b8def"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{
-              strokeDasharray: pathLength || 1000,
-              strokeDashoffset: drawn ? 0 : pathLength || 1000,
-              transition: "stroke-dashoffset 1.1s ease-out",
-            }}
-          />
-
-          {hovered && (
-            <g>
-              <line
-                x1={hovered.x}
-                y1={PAD_TOP}
-                x2={hovered.x}
-                y2={HEIGHT - PAD_BOTTOM}
-                stroke="#5b8def"
-                strokeWidth={1}
-                strokeDasharray="3 3"
-                opacity={0.6}
-              />
-              <circle cx={hovered.x} cy={hovered.y} r={4.5} fill="#0b0f17" stroke="#5b8def" strokeWidth={2} />
-            </g>
-          )}
-
-          <rect
-            x={0}
-            y={0}
-            width={WIDTH}
-            height={HEIGHT}
-            fill="transparent"
-            onMouseMove={handleMove}
-            onMouseLeave={() => setHoverIndex(null)}
-          />
-        </svg>
-
-        <div
-          className="pointer-events-none absolute whitespace-nowrap text-[11px] font-medium text-gold"
-          style={{ top: `${(avgY / HEIGHT) * 100}%`, right: 4, transform: "translateY(-130%)" }}
-        >
-          30-day avg
         </div>
 
-        {hovered && (
-          <div
-            className="pointer-events-none absolute rounded-lg border border-slate-700 bg-panel px-3 py-2 text-xs shadow-panel"
-            style={{
-              left: `${(hovered.x / WIDTH) * 100}%`,
-              top: `${(hovered.y / HEIGHT) * 100}%`,
-              transform: "translate(-50%, -130%)",
-            }}
+        <div className="relative min-w-0 flex-1">
+          <svg
+            width="100%"
+            height={HEIGHT}
+            viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+            preserveAspectRatio="none"
+            className="overflow-visible"
           >
-            <div className="font-semibold tabular-nums text-slate-100">{formatRate(hovered.raw.value)}</div>
-            <div className="text-slate-400">{formatDateDMY(hovered.raw.date)}</div>
+            <defs>
+              <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#5b8def" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#5b8def" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+
+            {gridSteps.map((t) => {
+              const y = PAD_TOP + (HEIGHT - PAD_TOP - PAD_BOTTOM) * t;
+              return <line key={t} x1={0} y1={y} x2={WIDTH} y2={y} stroke="#1c2435" strokeWidth={1} />;
+            })}
+
+            <path d={areaPath} fill="url(#areaGradient)" />
+
+            <line
+              x1={0}
+              y1={avgY}
+              x2={WIDTH}
+              y2={avgY}
+              stroke="#d6a84e"
+              strokeWidth={1.5}
+              strokeDasharray="6 5"
+              opacity={0.85}
+            />
+
+            <path
+              ref={pathRef}
+              d={linePath}
+              fill="none"
+              stroke="#5b8def"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                strokeDasharray: pathLength || 1000,
+                strokeDashoffset: drawn ? 0 : pathLength || 1000,
+                transition: "stroke-dashoffset 1.1s ease-out",
+              }}
+            />
+
+            {hovered && (
+              <g>
+                <line
+                  x1={hovered.x}
+                  y1={PAD_TOP}
+                  x2={hovered.x}
+                  y2={HEIGHT - PAD_BOTTOM}
+                  stroke="#5b8def"
+                  strokeWidth={1}
+                  strokeDasharray="3 3"
+                  opacity={0.6}
+                />
+                <circle cx={hovered.x} cy={hovered.y} r={4.5} fill="#0b0f17" stroke="#5b8def" strokeWidth={2} />
+              </g>
+            )}
+
+            <rect
+              x={0}
+              y={0}
+              width={WIDTH}
+              height={HEIGHT}
+              fill="transparent"
+              onMouseMove={handleMove}
+              onMouseLeave={() => setHoverIndex(null)}
+            />
+          </svg>
+
+          <div
+            className="pointer-events-none absolute whitespace-nowrap text-[11px] font-medium text-gold"
+            style={{ top: `${(avgY / HEIGHT) * 100}%`, right: 4, transform: "translateY(-130%)" }}
+          >
+            30-day avg
           </div>
-        )}
+
+          {hovered && (
+            <div
+              className="pointer-events-none absolute rounded-lg border border-slate-700 bg-panel px-3 py-2 text-xs shadow-panel"
+              style={{
+                left: `${(hovered.x / WIDTH) * 100}%`,
+                top: `${(hovered.y / HEIGHT) * 100}%`,
+                transform: "translate(-50%, -130%)",
+              }}
+            >
+              <div className="font-semibold tabular-nums text-slate-100">{formatRate(hovered.raw.value)}</div>
+              <div className="text-slate-400">{formatDateDMY(hovered.raw.date)}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-1 flex w-full">
+        <div className="shrink-0" style={{ width: LABEL_COLUMN_WIDTH }} />
+        <div ref={axisRef} className="relative min-w-0 flex-1" style={{ height: X_AXIS_HEIGHT }}>
+          {xTickIndices.map((idx) => {
+            const isFirst = idx === 0;
+            const isLast = idx === points.length - 1;
+            const tickStyle: React.CSSProperties = isFirst
+              ? { left: 0 }
+              : isLast
+                ? { right: 0 }
+                : { left: `${(points[idx].x / WIDTH) * 100}%`, transform: "translateX(-50%)" };
+            return (
+              <div
+                key={idx}
+                className="absolute whitespace-nowrap text-[10px] font-medium tabular-nums text-slate-500"
+                style={tickStyle}
+              >
+                {formatDateDMY(points[idx].raw.date)}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

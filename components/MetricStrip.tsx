@@ -16,42 +16,55 @@ export default function MetricStrip({ metrics }: MetricStripProps) {
   const trendFraction = metrics.trendUpShare / 100;
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-      <MiniGauge
-        label="Annualized Volatility"
-        description="How much the rate swings day to day, scaled to a yearly figure. Higher means larger, more erratic moves."
-        valueLabel={formatPercent(metrics.volatilityAnnualizedPct)}
-        fraction={volFraction}
-        tone="neutral"
-      />
-      <MiniGauge
-        label="Period Momentum"
-        description="Percentage change from the first to the last value in the selected time window."
-        valueLabel={formatPercent(metrics.momentumPct)}
-        fraction={momentumFraction}
-        tone={metrics.momentumPct >= 0 ? "up" : "down"}
-      />
-      <MiniGauge
-        label="High-Low Range"
-        description="Gap between the highest and lowest rate in the selected window, as a percentage of the low."
-        valueLabel={formatPercent(metrics.rangePct)}
-        fraction={rangeFraction}
-        tone="neutral"
-      />
-      <MiniGauge
-        label="USD vs 30-Day Avg"
-        description="How far today's rate sits from its own trailing 30-day average — the same comparison shown in the gauge above."
-        valueLabel={formatPercent(metrics.deviationFromAvgPct)}
-        fraction={strengthFraction}
-        tone={metrics.deviationFromAvgPct >= 0 ? "up" : "down"}
-      />
-      <MiniGauge
-        label="Trend (Up-Day Share)"
-        description="Share of days in the selected window where the rate rose versus the previous day. Above 50% means more up-days than down-days."
-        valueLabel={formatPercent(metrics.trendUpShare, 0)}
-        fraction={trendFraction}
-        tone={metrics.trendUpShare >= 50 ? "up" : "down"}
-      />
+    <div>
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-up" /> Favorable / rising
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-down" /> Unfavorable / falling
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-accent" /> Neutral (magnitude only, no good/bad direction)
+        </span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        <MiniGauge
+          label="Annualized Volatility"
+          description="How much the rate swings day to day, scaled to a yearly figure. Higher means larger, more erratic moves."
+          valueLabel={formatPercent(metrics.volatilityAnnualizedPct)}
+          fraction={volFraction}
+          tone="neutral"
+        />
+        <MiniGauge
+          label="Period Momentum"
+          description="Percentage change from the first to the last value in the selected time window."
+          valueLabel={formatPercent(metrics.momentumPct)}
+          fraction={momentumFraction}
+          tone={metrics.momentumPct >= 0 ? "up" : "down"}
+        />
+        <MiniGauge
+          label="High-Low Range"
+          description="Gap between the highest and lowest rate in the selected window, as a percentage of the low."
+          valueLabel={formatPercent(metrics.rangePct)}
+          fraction={rangeFraction}
+          tone="neutral"
+        />
+        <MiniGauge
+          label="USD vs 30-Day Avg"
+          description="How far today's rate sits from its own trailing 30-day average — the same comparison shown in the gauge above."
+          valueLabel={formatPercent(metrics.deviationFromAvgPct)}
+          fraction={strengthFraction}
+          tone={metrics.deviationFromAvgPct >= 0 ? "up" : "down"}
+        />
+        <MiniGauge
+          label="Trend (Up-Day Share)"
+          description="Share of days in the selected window where the rate rose versus the previous day. Above 50% means more up-days than down-days."
+          valueLabel={formatPercent(metrics.trendUpShare, 0)}
+          fraction={trendFraction}
+          tone={metrics.trendUpShare >= 50 ? "up" : "down"}
+        />
+      </div>
     </div>
   );
 }

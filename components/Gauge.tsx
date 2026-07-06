@@ -124,14 +124,19 @@ export default function Gauge({ deviationPct, deviationAbs, average }: GaugeProp
         <div className="mt-1 text-xs text-slate-400">
           Mean: <span className="tabular-nums">{formatRate(average)}</span>
         </div>
-        <div className="mt-1 flex items-center justify-center gap-2 text-sm">
-          <span className={`tabular-nums font-semibold ${isAbove ? "text-gold" : "text-accent"}`}>
-            {formatPercent(deviationPct)}
-          </span>
-          <span className="text-slate-500">/</span>
-          <span className={`tabular-nums ${isAbove ? "text-gold" : "text-accent"}`}>
-            {formatSigned(deviationAbs)}
-          </span>
+        <div className="mt-1 flex items-center justify-center gap-4 text-sm">
+          <div className="flex flex-col items-center">
+            <span className={`tabular-nums font-semibold ${isAbove ? "text-gold" : "text-accent"}`}>
+              {formatPercent(deviationPct)}
+            </span>
+            <span className="text-[10px] uppercase tracking-wide text-slate-500">% from avg</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className={`tabular-nums ${isAbove ? "text-gold" : "text-accent"}`}>
+              {formatSigned(deviationAbs)}
+            </span>
+            <span className="text-[10px] uppercase tracking-wide text-slate-500">rate diff</span>
+          </div>
         </div>
       </div>
     </div>

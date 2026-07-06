@@ -7,40 +7,65 @@ interface InfoTipProps {
   align?: "center" | "left" | "right";
 }
 
-const ALIGN_CLASS: Record<NonNullable<InfoTipProps["align"]>, string> = {
-  center: "left-1/2 -translate-x-1/2",
-  left: "left-0",
-  right: "right-0",
-};
-
-// Tooltip box is roughly this tall (px); below this much clearance we flip it to open downward instead.
+const TOOLTIP_WIDTH = 208; // px, matches w-52
+const VIEWPORT_MARGIN = 8;
+const GAP = 8;
+// Tooltip box is roughly this tall (px); below this much clearance above the icon we flip it to open downward instead.
 const MIN_SPACE_ABOVE = 100;
+
+interface TooltipStyle {
+  left: number;
+  top?: number;
+  bottom?: number;
+}
 
 export default function InfoTip({ text, align = "center" }: InfoTipProps) {
   const [open, setOpen] = useState(false);
-  const [placement, setPlacement] = useState<"top" | "bottom">("top");
-  const ref = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<TooltipStyle | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
+    // The tooltip is positioned in fixed coordinates computed at open time, so scrolling or
+    // resizing would leave it pointing at the wrong spot - just close it instead of tracking.
+    function close() {
+      setOpen(false);
+    }
     document.addEventListener("mousedown", handlePointerDown);
-    return () => document.removeEventListener("mousedown", handlePointerDown);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
   }, [open]);
 
   function reveal() {
-    const rect = ref.current?.getBoundingClientRect();
-    setPlacement(rect && rect.top < MIN_SPACE_ABOVE ? "bottom" : "top");
+    const rect = wrapperRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    let left = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2;
+    if (align === "left") left = rect.left;
+    if (align === "right") left = rect.right - TOOLTIP_WIDTH;
+    left = Math.max(VIEWPORT_MARGIN, Math.min(left, window.innerWidth - TOOLTIP_WIDTH - VIEWPORT_MARGIN));
+
+    if (rect.top < MIN_SPACE_ABOVE) {
+      setStyle({ left, top: rect.bottom + GAP });
+    } else {
+      setStyle({ left, bottom: window.innerHeight - rect.top + GAP });
+    }
     setOpen(true);
   }
 
   return (
     <div
-      ref={ref}
+      ref={wrapperRef}
       className="relative inline-flex"
       onMouseEnter={reveal}
       onMouseLeave={() => setOpen(false)}
@@ -54,12 +79,11 @@ export default function InfoTip({ text, align = "center" }: InfoTipProps) {
       >
         i
       </button>
-      {open && (
+      {open && style && (
         <div
           role="tooltip"
-          className={`absolute z-20 w-52 rounded-lg border border-slate-700 bg-panel px-3 py-2 text-left text-[11px] font-normal leading-snug text-slate-300 shadow-panel ${
-            placement === "top" ? "bottom-full mb-2" : "top-full mt-2"
-          } ${ALIGN_CLASS[align]}`}
+          className="fixed z-[100] rounded-lg border border-slate-700 bg-panel px-3 py-2 text-left text-[11px] font-normal leading-snug text-slate-300 shadow-panel"
+          style={{ width: TOOLTIP_WIDTH, left: style.left, top: style.top, bottom: style.bottom }}
         >
           {text}
         </div>

@@ -12,6 +12,7 @@ import RateHeadline from "@/components/RateHeadline";
 import StatusBadge from "@/components/StatusBadge";
 import InfoTip from "@/components/InfoTip";
 import DashboardPanel from "@/components/DashboardPanel";
+import RateAlert from "@/components/RateAlert";
 import { useRates } from "@/lib/useRates";
 import { useDefaultCurrency } from "@/lib/useDefaultCurrency";
 import { computeMetrics } from "@/lib/metrics";
@@ -192,6 +193,10 @@ export default function DashboardPage() {
             {panelContent[id]}
           </DashboardPanel>
         ))}
+      </div>
+
+      <div className="mt-5">
+        <RateAlert pair={pair} current={metrics?.current ?? null} />
       </div>
     </main>
   );
